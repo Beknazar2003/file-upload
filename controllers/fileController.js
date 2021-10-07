@@ -1,8 +1,9 @@
-const { User , File} = require('../models/models')
+const { User , File , Access} = require('../models/models')
 const ApiError = require('../error/ApiError')
 const jwt = require("jsonwebtoken")
 const path = require('path')
 const uuid = require('uuid')
+const {where} = require("sequelize");
 
 class fileController {
   async uploadFile(req, res, next) {
@@ -20,8 +21,8 @@ class fileController {
         title,
         fileName,
         privateStatus,
-        userFileId: id
       })
+      await Access.create({userFileId: id , fileId: newFile.id})
       return res.json(newFile)
     } catch (e) {
       next(ApiError.badRequest(e.message))
@@ -29,15 +30,16 @@ class fileController {
   }
 
   async getAll(req, res) {
+    if(req.headers.authorization === undefined) return res.json('Пользатель не авторизован')
     const token = req.headers.authorization.split(' ')[1]
     const { id } = jwt.verify(token, process.env.SECRET_KEY)
-    const accessFiles = await File.findAndCountAll({where: {userFileId: id}})
+    const accessFilesId = await Access.findAndCountAll( {where: {userFileId: id}} )
+    const accessFiles = await File.findAndCountAll({where: {id: accessFilesId.rows.map(item => {return item.fileId})}})
     const allFiles = await File.findAndCountAll({where: {privateStatus: false}})
-    const reply = {
+    return res.json({
       accessFiles,
       allFiles
-    }
-    return res.json(reply)
+    })
   }
   
   async getOne(req, res) {
@@ -60,6 +62,7 @@ class fileController {
       where: { id },
     })
     if(file.privateStatus){
+      if(req.headers.authorization === undefined) return res.json('Пользатель не авторизован')
       const token = req.headers.authorization.split(' ')[1]
       const { id } = jwt.verify(token, process.env.SECRET_KEY)
       if(file.userFileId === id) {

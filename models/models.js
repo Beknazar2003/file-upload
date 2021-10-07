@@ -15,10 +15,15 @@ const File = sequelize.define('file', {
   privateStatus: {type: DataTypes.BOOLEAN},
 })
 
-User.hasMany(File)
-File.belongsToMany(User, {through: 'User'})
+const Access = sequelize.define('access', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+})
+
+User.belongsToMany(File, {through: Access})
+File.belongsToMany(User, {through: Access})
 
 module.exports = {
   User,
-  File
+  File,
+  Access
 }
